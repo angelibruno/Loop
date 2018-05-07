@@ -104,6 +104,7 @@ final class SettingsTableViewController: UITableViewController, DailyValueSchedu
         case basalRate
         case carbRatio
         case insulinSensitivity
+        case parameterEstimation
         case maxBasal
         case maxBolus
     }
@@ -345,6 +346,11 @@ final class SettingsTableViewController: UITableViewController, DailyValueSchedu
                 } else {
                     configCell.detailTextLabel?.text = TapToSetString
                 }
+            case .parameterEstimation:
+                configCell.textLabel?.text = NSLocalizedString("Estimated ISF Multiplier", comment: "The title text for results of parameter estimation")
+                let isfMultiplier = valueNumberFormatter.string(from: NSNumber(value: dataManager.loopManager.estimatedParameters.insulinSensitivityMultipler))!
+                let isfConfidence = valueNumberFormatter.string(from: NSNumber(value: dataManager.loopManager.estimatedParameters.insulinSensitivityConfidence))!
+                configCell.detailTextLabel?.text = String(format: NSLocalizedString("%1$@ (%2$@%%)", comment: "Format string for ISF estimation multipler. (1: value)(2: confidence)"), isfMultiplier, isfConfidence)
             }
 
             return configCell
@@ -599,6 +605,23 @@ final class SettingsTableViewController: UITableViewController, DailyValueSchedu
                 }
             case .insulinModel:
                 performSegue(withIdentifier: InsulinModelSettingsViewController.className, sender: sender)
+            case .parameterEstimation:
+                let bufferPercentage = dataManager.loopManager.estimatedParameters.estimationBufferPercentage
+                let vc = EstimatedParametersTableViewController(parameters: dataManager.loopManager.estimatedParameters)
+                let estimationBuffer = valueNumberFormatter.string(from: NSNumber(value: bufferPercentage))!
+                let unexpectedPostiveDiscrepancy = valueNumberFormatter.string(from: NSNumber(value: dataManager.loopManager.estimatedParameters.unexpectedPositiveDiscrepancyPercentage))!
+                let unexpectedNegativeDiscrepancy = valueNumberFormatter.string(from: NSNumber(value: dataManager.loopManager.estimatedParameters.unexpectedNegativeDiscrepancyPercentage))!
+                vc.title = "Estimated Parameters"
+                var commentLine1: String = ""
+                if(bufferPercentage < 98) {
+                    commentLine1 = "Estimator initialization in progress, currently at " + estimationBuffer + "%.\n\n"
+                }
+                let commentLine2: String = "Estimator has detected " + unexpectedPostiveDiscrepancy + "% excessive +BG discrepancies possibly due to unannounced carbs, underestimated carbs, fast absorbing carbs, or other factors pushing BG up, and " + unexpectedNegativeDiscrepancy + "% excessive -BG discrepancies possibly due to overestimated carbs, exercise, or other factors pushing BG down.\n\n"
+                let commentLine3: String = "WARNING: parameter estimation is highly experimental work in progress. The results are shown for your information only and are not affecting manually entered Loop settings."
+                vc.contextHelp = commentLine1 + commentLine2 + commentLine3
+                vc.indexPath = indexPath
+                vc.delegate = self
+                show(vc, sender: indexPath)
             }
         case .devices:
             let device = devices[indexPath.row]
@@ -1012,6 +1035,8 @@ extension SettingsTableViewController: LoopKit.TextFieldTableViewControllerDeleg
                     } else {
                         dataManager.loopManager.settings.maximumBolus = nil
                     }
+                case .parameterEstimation:
+                    break
                 default:
                     assertionFailure()
                 }

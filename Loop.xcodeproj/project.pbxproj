@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		38204CE2209FCB8B00EE2DAD /* EstimatedParametersTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38204CE1209FCB8B00EE2DAD /* EstimatedParametersTableViewController.swift */; };
 		43027F0F1DFE0EC900C51989 /* HKUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F526D5E1DF2459000A04910 /* HKUnit.swift */; };
 		4302F4E11D4E9C8900F0FCAF /* TextFieldTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4302F4E01D4E9C8900F0FCAF /* TextFieldTableViewController.swift */; };
 		4302F4E31D4EA54200F0FCAF /* InsulinDeliveryTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4302F4E21D4EA54200F0FCAF /* InsulinDeliveryTableViewController.swift */; };
@@ -385,6 +386,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		38204CE1209FCB8B00EE2DAD /* EstimatedParametersTableViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EstimatedParametersTableViewController.swift; sourceTree = "<group>"; };
 		4302F4E01D4E9C8900F0FCAF /* TextFieldTableViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TextFieldTableViewController.swift; sourceTree = "<group>"; };
 		4302F4E21D4EA54200F0FCAF /* InsulinDeliveryTableViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InsulinDeliveryTableViewController.swift; sourceTree = "<group>"; };
 		4302F4E41D4EA75100F0FCAF /* DoseStore.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = DoseStore.swift; sourceTree = "<group>"; };
@@ -983,6 +985,7 @@
 				433EA4C11D9F39C900CD78FB /* PumpIDTableViewController.swift */,
 				43F5173C1D713DB0000FA422 /* RadioSelectionTableViewController.swift */,
 				43F5C2DA1B92A5E1003EB13D /* SettingsTableViewController.swift */,
+				38204CE1209FCB8B00EE2DAD /* EstimatedParametersTableViewController.swift */,
 				43E3449E1B9D68E900C85C07 /* StatusTableViewController.swift */,
 				4302F4E01D4E9C8900F0FCAF /* TextFieldTableViewController.swift */,
 			);
@@ -1674,6 +1677,7 @@
 				43D381621EBD9759007F8C8F /* HeaderValuesTableViewCell.swift in Sources */,
 				43BFF0C51E465A2D00FF19A9 /* UIColor+HIG.swift in Sources */,
 				4302F4E31D4EA54200F0FCAF /* InsulinDeliveryTableViewController.swift in Sources */,
+				38204CE2209FCB8B00EE2DAD /* EstimatedParametersTableViewController.swift in Sources */,
 				437CCAE01D285C7B0075D2C3 /* ServiceAuthentication.swift in Sources */,
 				4FC8C8011DEB93E400A1452E /* NSUserDefaults+StatusExtension.swift in Sources */,
 				4302F4E51D4EA75100F0FCAF /* DoseStore.swift in Sources */,

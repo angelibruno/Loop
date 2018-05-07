@@ -51,6 +51,10 @@ extension UserDefaults {
         case preferredInsulinDataSource = "com.loudnate.Loop.PreferredInsulinDataSource"
         case pumpSettings = "com.loopkit.Loop.PumpSettings"
         case pumpState = "com.loopkit.Loop.PumpState"
+        case retrospectiveInsulinEffects = "com.loopkit.Loop.retrospectiveInsulinEffects"
+        case retrospectiveCarbEffects = "com.loopkit.Loop.retrospectiveCarbEffects"
+        case retrospectiveBasalEffects = "com.loopkit.Loop.retrospectiveBasalEffects"
+        case retrospectiveDiscrepancies = "com.loopkit.Loop.retrospectiveDiscrepancies"
     }
 
     var basalRateSchedule: BasalRateSchedule? {
@@ -215,6 +219,63 @@ extension UserDefaults {
         }
     }
 
+    var retrospectiveInsulinEffects: [GlucoseEffectVelocity]? {
+        get {
+            guard let rawValue = array(forKey: Key.retrospectiveInsulinEffects.rawValue) as? [GlucoseEffectVelocity.RawValue] else {
+                return nil
+            }
+            return rawValue.compactMap {
+                GlucoseEffectVelocity(rawValue: $0)
+            }
+        }
+        set {
+            set(newValue?.map({ $0.rawValue }), forKey: Key.retrospectiveInsulinEffects.rawValue)
+        }
+    }
+    
+    var retrospectiveCarbEffects: [GlucoseEffectVelocity]? {
+        get {
+            guard let rawValue = array(forKey: Key.retrospectiveCarbEffects.rawValue) as? [GlucoseEffectVelocity.RawValue] else {
+                return nil
+            }
+            return rawValue.compactMap {
+                GlucoseEffectVelocity(rawValue: $0)
+            }
+        }
+        set {
+            set(newValue?.map({ $0.rawValue }), forKey: Key.retrospectiveCarbEffects.rawValue)
+        }
+    }
+    
+    var retrospectiveBasalEffects: [GlucoseEffectVelocity]? {
+        get {
+            guard let rawValue = array(forKey: Key.retrospectiveBasalEffects.rawValue) as? [GlucoseEffectVelocity.RawValue] else {
+                return nil
+            }
+            return rawValue.compactMap {
+                GlucoseEffectVelocity(rawValue: $0)
+            }
+        }
+        set {
+            set(newValue?.map({ $0.rawValue }), forKey: Key.retrospectiveBasalEffects.rawValue)
+        }
+    }
+    
+    var retrospectiveDiscrepancies: [GlucoseEffectVelocity]? {
+        get {
+            guard let rawValue = array(forKey: Key.retrospectiveDiscrepancies.rawValue) as? [GlucoseEffectVelocity.RawValue] else {
+                return nil
+            }
+            return rawValue.compactMap {
+                GlucoseEffectVelocity(rawValue: $0)
+            }
+        }
+        set {
+            set(newValue?.map({ $0.rawValue }), forKey: Key.retrospectiveDiscrepancies.rawValue)
+        }
+    }
+    
+    
     var insulinSensitivitySchedule: InsulinSensitivitySchedule? {
         get {
             if let rawValue = dictionary(forKey: Key.insulinSensitivitySchedule.rawValue) {
