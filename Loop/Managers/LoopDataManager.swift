@@ -203,28 +203,28 @@ final class LoopDataManager {
     /// A timeline of 30-min retrospective insulin effects
     fileprivate var retrospectiveInsulinEffects: [GlucoseEffectVelocity] {
         didSet {
-            UserDefaults.standard.retrospectiveInsulinEffects = retrospectiveInsulinEffects
+            UserDefaults.appGroup.retrospectiveInsulinEffects = retrospectiveInsulinEffects
         }
     }
     
     /// A timeline of 30-min retrospective carb effects
     fileprivate var retrospectiveCarbEffects: [GlucoseEffectVelocity] {
         didSet {
-            UserDefaults.standard.retrospectiveCarbEffects = retrospectiveCarbEffects
+            UserDefaults.appGroup.retrospectiveCarbEffects = retrospectiveCarbEffects
         }
     }
     
     /// A timeline of 30-min retrospective basal effects
     fileprivate var retrospectiveBasalEffects: [GlucoseEffectVelocity] {
         didSet {
-            UserDefaults.standard.retrospectiveBasalEffects = retrospectiveBasalEffects
+            UserDefaults.appGroup.retrospectiveBasalEffects = retrospectiveBasalEffects
         }
     }
     
     /// A timeline of 30-min retrospective discrepancies
     fileprivate var retrospectiveDiscrepancies: [GlucoseEffectVelocity] {
         didSet {
-            UserDefaults.standard.retrospectiveDiscrepancies = retrospectiveDiscrepancies
+            UserDefaults.appGroup.retrospectiveDiscrepancies = retrospectiveDiscrepancies
         }
     }
     
