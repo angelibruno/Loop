@@ -7,7 +7,7 @@
 	<key>CFBundleDevelopmentRegion</key>
 	<string>en</string>
 	<key>CFBundleDisplayName</key>
-	<string>Loop</string>
+	<string>LoopX</string>
 	<key>CFBundleExecutable</key>
 	<string>$(EXECUTABLE_NAME)</string>
 	<key>CFBundleIdentifier</key>
@@ -44,14 +44,14 @@
 	<true/>
 	<key>NSBluetoothPeripheralUsageDescription</key>
 	<string>Bluetooth is used to communicate with insulin pump and continuous glucose monitor devices</string>
+	<key>NSFaceIDUsageDescription</key>
+	<string>Face ID is used to authenticate insulin boluses.</string>
 	<key>NSHealthShareUsageDescription</key>
 	<string>Meal data from the Health database is used to determine glucose effects.
 Glucose data from the Health database is used for graphing and momentum calculation.</string>
 	<key>NSHealthUpdateUsageDescription</key>
 	<string>Carbohydrate meal data entered in the app and on the watch is stored in the Health database.
 Glucose data retrieved from the CGM is stored securely in HealthKit.</string>
-	<key>NSFaceIDUsageDescription</key>
-	<string>Face ID is used to authenticate insulin boluses.</string>
 	<key>UIBackgroundModes</key>
 	<array>
 		<string>bluetooth-central</string>
