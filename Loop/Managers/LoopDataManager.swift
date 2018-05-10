@@ -1293,20 +1293,6 @@ final class LoopDataManager {
         // parameter estimation monitoring in debugger or Console ("message: myLoop")
         NSLog("myLoop ---parameter estimation------")
         
-<<<<<<< HEAD
-<<<<<<< HEAD
-        // parameter estimation
-        self.estimatedParameters = trackingParameterEstimator(currentDiscrepancy: currentDiscrepancy, insulinEffect: currentInsulinEffect, carbEffect: currentCarbEffect, endDate: endDate)
-   
-        NSLog("myLoop Estimated ISF multiplier: %4.2f with %2.0f%% confidence", self.estimatedParameters.insulinSensitivityMultipler, self.estimatedParameters.insulinSensitivityConfidence)
-        NSLog("myLoop Estimated CSF multiplier: %4.2f with %2.0f%% confidence", self.estimatedParameters.carbSensitivityMultiplier, self.estimatedParameters.carbSensitivityConfidence)
-        NSLog("myLoop Estimated CR multiplier: %4.2f with %2.0f%% confidence", self.estimatedParameters.carbRatioMultiplier, self.estimatedParameters.carbRatioConfidence)
-        NSLog("myLoop Estimated basal multiplier: %4.2f with %2.0f%% confidence", self.estimatedParameters.basalMultiplier, self.estimatedParameters.basalConfidence)
-        NSLog("myLoop Unexpected +BG: %2.0f%%, unexpected -BG: %2.0f%%", self.estimatedParameters.unexpectedPositiveDiscrepancyPercentage, self.estimatedParameters.unexpectedNegativeDiscrepancyPercentage)
-=======
-        glucoseUpdated = false // prevent further integral RC updates unless glucose has been updated
->>>>>>> integral-retrospective-correction
-=======
         // run parameter estimation only if glucose has been updated
         if (glucoseUpdated) {
             self.estimatedParameters = trackingParameterEstimator(currentDiscrepancy: currentDiscrepancy, insulinEffect: currentInsulinEffect, carbEffect: currentCarbEffect, endDate: endDate)
@@ -1320,7 +1306,7 @@ final class LoopDataManager {
 
         // prevent further integral RC and estimator updates unless glucose has been updated
         glucoseUpdated = false
->>>>>>> parameter-estimation-wip
+
     }
 
     /// Measure the effects counteracting insulin observed in the CGM glucose.
