@@ -319,6 +319,7 @@ final class LoopDataManager {
                     self.lastGlucoseChange = nil
                     self.retrospectiveGlucoseChange = nil
                     self.notify(forChange: .glucose)
+                    NSLog("LoopX: line 320")
                 }
             }
 
@@ -540,6 +541,7 @@ final class LoopDataManager {
 
         if retrospectiveGlucoseChange == nil {
             updateGroup.enter()
+            NSLog("LoopX: line 543")
             glucoseStore.getGlucoseChange(start: retrospectiveStart) { (change) in
                 self.retrospectiveGlucoseChange = change
                 updateGroup.leave()
@@ -633,6 +635,7 @@ final class LoopDataManager {
         if retrospectivePredictedGlucose == nil {
             do {
                 try updateRetrospectiveGlucoseEffect()
+                NSLog("LoopX: line 638")
             } catch let error {
                 logger.error(error)
             }
@@ -999,7 +1002,7 @@ final class LoopDataManager {
                     max( min(basalMultiplier, maxMultiplier), minMultiplier)
             }
             
-            NSLog("myLoop %d, ISF: %4.2f(%4.2f), CSF: %4.2f(%4.2f), B: %4.2f(%4.2f)", index, insulinSensitivityMultiplier, insulinSensitivityWeight, carbSensitivityMultiplier, carbSensitivityWeight, basalMultiplier, basalWeight)
+            //NSLog("myLoop %d, ISF: %4.2f(%4.2f), CSF: %4.2f(%4.2f), B: %4.2f(%4.2f)", index, insulinSensitivityMultiplier, insulinSensitivityWeight, carbSensitivityMultiplier, carbSensitivityWeight, basalMultiplier, basalWeight)
             
             insulinSensitivityMultipliers.entries.insert(insulinSensitivityMultiplier, at: 0)
             insulinSensitivityWeights.entries.insert(insulinSensitivityWeight, at: 0)
