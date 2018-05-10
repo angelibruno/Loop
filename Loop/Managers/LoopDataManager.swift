@@ -1279,22 +1279,22 @@ final class LoopDataManager {
         let currentDeltaBG = change.end.quantity.doubleValue(for: glucoseUnit) -
             change.start.quantity.doubleValue(for: glucoseUnit)// mg/dL
         
-        // monitoring of retrospective correction in debugger or Console ("message: myLoop")
-        NSLog("myLoop ******************************************")
-        NSLog("myLoop ---retrospective correction ([mg/dL] bg unit)---")
-        NSLog("myLoop Current BG: %f", currentBG)
-        NSLog("myLoop 30-min retrospective delta BG: %f", currentDeltaBG)
-        NSLog("myLoop Retrospective insulin effect: %f", currentInsulinEffect)
-        NSLog("myLoop Retrospectve carb effect: %f", currentCarbEffect)
-        NSLog("myLoop Current discrepancy: %f", currentDiscrepancy)
-        NSLog("myLoop Overall retrospective correction: %f", overallRC)
-        NSLog("myLoop Correction effect duration [min]: %f", effectMinutes)
-  
-        // parameter estimation monitoring in debugger or Console ("message: myLoop")
-        NSLog("myLoop ---parameter estimation------")
-        
         // run parameter estimation only if glucose has been updated
         if (glucoseUpdated) {
+            // monitoring of retrospective correction in debugger or Console ("message: myLoop")
+            NSLog("myLoop ******************************************")
+            NSLog("myLoop ---retrospective correction ([mg/dL] bg unit)---")
+            NSLog("myLoop Current BG: %f", currentBG)
+            NSLog("myLoop 30-min retrospective delta BG: %f", currentDeltaBG)
+            NSLog("myLoop Retrospective insulin effect: %f", currentInsulinEffect)
+            NSLog("myLoop Retrospectve carb effect: %f", currentCarbEffect)
+            NSLog("myLoop Current discrepancy: %f", currentDiscrepancy)
+            NSLog("myLoop Overall retrospective correction: %f", overallRC)
+            NSLog("myLoop Correction effect duration [min]: %f", effectMinutes)
+            
+            // parameter estimation monitoring in debugger or Console ("message: myLoop")
+            NSLog("myLoop ---parameter estimation------")
+            
             self.estimatedParameters = trackingParameterEstimator(currentDiscrepancy: currentDiscrepancy, insulinEffect: currentInsulinEffect, carbEffect: currentCarbEffect, endDate: endDate)
             
             NSLog("myLoop Estimated ISF multiplier: %4.2f with %2.0f%% confidence", self.estimatedParameters.insulinSensitivityMultipler, self.estimatedParameters.insulinSensitivityConfidence)
