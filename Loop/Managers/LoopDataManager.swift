@@ -843,7 +843,6 @@ final class LoopDataManager {
         
         let maxMultiplier = 1 + parameterDeviation // upper limit for the estimated multipliers
         let minMultiplier = 1 - parameterDeviation // lower limit for the estimated multipliers
-        let estimatorCounter = Effects()
         
         // Parameter estimation launched only if we were able to get user parameters
         // so it should be safe to unwrap sensitivities and basal rates here
@@ -861,19 +860,10 @@ final class LoopDataManager {
         let startDate = endDate.addingTimeInterval(TimeInterval(minutes: -30))
         let velocityUnit = glucoseUnit.unitDivided(by: HKUnit.minute())
         
-        // Default neutral retrospective effects are all zero
-        var discrepancyQuantity = HKQuantity(unit: velocityUnit, doubleValue: 0.0)
-        var insulinQuantity = HKQuantity(unit: velocityUnit, doubleValue: 0.0)
-        var carbQuantity = HKQuantity(unit: velocityUnit, doubleValue: 0.0)
-        var basalQuantity = HKQuantity(unit: velocityUnit, doubleValue: 0.0)
-        // Retrospective effects may not be correct in first two cycles after launch
-        let numberOfEstimatorCyclesSinceLaunch = estimatorCounter.incrementCounter()
-        if (numberOfEstimatorCyclesSinceLaunch > 2) {
-            discrepancyQuantity = HKQuantity(unit: velocityUnit, doubleValue: currentDiscrepancy)
-            insulinQuantity = HKQuantity(unit: velocityUnit, doubleValue: insulinEffect)
-            carbQuantity = HKQuantity(unit: velocityUnit, doubleValue: carbEffect)
-            basalQuantity = HKQuantity(unit: velocityUnit, doubleValue: currentBasalEffect)
-        }
+        let discrepancyQuantity = HKQuantity(unit: velocityUnit, doubleValue: currentDiscrepancy)
+        let insulinQuantity = HKQuantity(unit: velocityUnit, doubleValue: insulinEffect)
+        let carbQuantity = HKQuantity(unit: velocityUnit, doubleValue: carbEffect)
+        let basalQuantity = HKQuantity(unit: velocityUnit, doubleValue: currentBasalEffect)
         
         // Insert and store new retrospective effects
         let discrepancyEffect = GlucoseEffectVelocity(startDate: startDate, endDate: endDate, quantity: discrepancyQuantity)
