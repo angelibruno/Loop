@@ -995,7 +995,7 @@ final class LoopDataManager {
                     max( min(basalMultiplier, maxMultiplier), minMultiplier)
             }
             
-            //NSLog("myLoop %d, ISF: %4.2f(%4.2f), CSF: %4.2f(%4.2f), B: %4.2f(%4.2f)", index, insulinSensitivityMultiplier, insulinSensitivityWeight, carbSensitivityMultiplier, carbSensitivityWeight, basalMultiplier, basalWeight)
+            NSLog("myLoop %d, ISF: %4.2f(%4.2f), CSF: %4.2f(%4.2f), B: %4.2f(%4.2f)", index, insulinSensitivityMultiplier, insulinSensitivityWeight, carbSensitivityMultiplier, carbSensitivityWeight, basalMultiplier, basalWeight)
             
             insulinSensitivityMultipliers.entries.insert(insulinSensitivityMultiplier, at: 0)
             insulinSensitivityWeights.entries.insert(insulinSensitivityWeight, at: 0)
