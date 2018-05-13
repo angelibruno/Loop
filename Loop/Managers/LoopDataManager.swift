@@ -1248,7 +1248,7 @@ final class LoopDataManager {
         
         let effectMinutes = RC.updateEffectDuration()
         dynamicEffectDuration = TimeInterval(minutes: effectMinutes)
-        
+       
         // update effect value for display
         overallRetrospectiveCorrection = HKQuantity(unit: glucoseUnit, doubleValue: overallRC)
         // update integral RC status indicator
