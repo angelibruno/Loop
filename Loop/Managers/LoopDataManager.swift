@@ -55,7 +55,9 @@ final class LoopDataManager {
         var unexpectedPositiveDiscrepancyPercentage: Double = 0.0
         var unexpectedNegativeDiscrepancyPercentage: Double = 0.0
         var estimationBufferPercentage: Double = 0.0
-        let estimationHours: Double = 6.0
+        let estimationHours: Double = 6.0 // short-term estimation runs over estimationHours
+        let parameterDeviation: Double = 0.25 // expected max deviation in ISF, CSF, basal rates
+        let pointNoiseDeviation: Double = 0.8 // single point confidence = 1 - pointNoiseDeviation
     }
     var estimatedParameters = EstimatedParameters()
     
@@ -808,7 +810,7 @@ final class LoopDataManager {
             }
         }
     }
-
+    
     /**
      Effects array for the parameter estimation filter
      **/
@@ -837,16 +839,99 @@ final class LoopDataManager {
     }
     
     /**
+     Calculate estimated parameter multipliers and confidence weights given effects at a single point
+     **/
+    private func determineMultipliersWeights(discrepancy: Double, insulin: Double, carbs: Double, basal: Double, parameterDeviation: Double) -> ((Double, Double, Double, Double, Double, Double, Double, Double)) {
+        
+        let keepThreshold = 0.50 // discard points with effect contribution less than keepThreshold
+        let maxMultiplier = 1 + parameterDeviation // upper limit for the estimated multipliers
+        let minMultiplier = 1 - parameterDeviation // lower limit for the estimated multipliers
+        
+        let basalMaxDiscrepancy: Double = abs(basal) * parameterDeviation // > 0
+        let maximumExpectedDiscrepancy: Double = parameterDeviation *
+            sqrt( pow(insulin, 2) + pow(carbs, 2) + pow(basal, 2) )
+        
+        var expectedDiscrepancyFraction: Double = 1.0
+        var unexpectedPositiveFraction: Double = 0.0
+        var unexpectedNegativeFraction: Double = 0.0
+        
+        // fraction of observed discrepancy that can be ascribed to variation in parameters
+        if (discrepancy != 0.0) {
+            expectedDiscrepancyFraction = min(maximumExpectedDiscrepancy / abs(discrepancy), 1.0)
+            if (discrepancy > 0.0) {
+                unexpectedPositiveFraction = 1.0 - expectedDiscrepancyFraction
+            } else {
+                unexpectedNegativeFraction = 1.0 - expectedDiscrepancyFraction
+            }
+        }
+        
+        // confidence weights are proportional to current effect magnitudes
+        let weightBase = carbs + basalMaxDiscrepancy + abs(insulin)
+        var insulinSensitivityWeight: Double = 0.0
+        var carbSensitivityWeight: Double = 0.0
+        var basalWeight: Double = 0.0
+        if(weightBase > 0.0) {
+            insulinSensitivityWeight = abs(insulin) / weightBase
+            if(insulinSensitivityWeight < keepThreshold){
+                insulinSensitivityWeight = 0.0
+            }
+            carbSensitivityWeight = carbs / weightBase
+            if(carbSensitivityWeight < keepThreshold){
+                carbSensitivityWeight = 0.0
+            }
+            basalWeight = basalMaxDiscrepancy / weightBase
+            if(basalWeight < keepThreshold){
+                basalWeight = 0.0
+            }
+        }
+        
+        // Allocate current observed discepancy to three parameters according to relative weights
+        let insulinDiscrepancy = insulinSensitivityWeight * expectedDiscrepancyFraction * discrepancy
+        let carbDiscrepancy = carbSensitivityWeight * expectedDiscrepancyFraction * discrepancy
+        let basalDiscrepancy = basalWeight * expectedDiscrepancyFraction * discrepancy
+        
+        // Calculate parameter multipliers, observing limits
+        var insulinSensitivityMultiplier: Double = 1.0
+        if(insulin != 0){
+            insulinSensitivityMultiplier = 1.0 + insulinDiscrepancy / insulin
+            insulinSensitivityMultiplier =
+                max( min(insulinSensitivityMultiplier, maxMultiplier), minMultiplier)
+        }
+        var carbSensitivityMultiplier: Double = 1.0
+        if(carbs != 0){
+            carbSensitivityMultiplier = 1.0 + carbDiscrepancy / carbs
+            carbSensitivityMultiplier =
+                max( min(carbSensitivityMultiplier, maxMultiplier), minMultiplier)
+        }
+        var basalMultiplier: Double = 1.0
+        if(basal != 0) {
+            basalMultiplier = 1.0 - basalDiscrepancy / basal
+            basalMultiplier =
+                max( min(basalMultiplier, maxMultiplier), minMultiplier)
+        }
+        return((insulinSensitivityMultiplier, insulinSensitivityWeight,
+                carbSensitivityMultiplier, carbSensitivityWeight,
+                basalMultiplier, basalWeight,
+                unexpectedPositiveFraction, unexpectedNegativeFraction))
+    }
+    
+    /**
+     Get effects from stored effect array
+    **/
+    private func getEffects(retrospectiveEffects: [GlucoseEffectVelocity]) -> [Double]{
+        let glucoseUnit = HKUnit.milligramsPerDeciliter() // do all calcs in mg/dL
+        let velocityUnit = glucoseUnit.unitDivided(by: HKUnit.minute())
+        var currentEffects: [Double] = []
+        for effect in retrospectiveEffects {
+            currentEffects.append(effect.quantity.doubleValue(for: velocityUnit))
+        }
+        return(currentEffects)
+    }
+    
+    /**
      Parameter estimation math
      **/
     private func trackingParameterEstimator(currentDiscrepancy: Double, insulinEffect: Double, carbEffect: Double, endDate: Date) -> EstimatedParameters {
-        
-        let parameterDeviation = 0.25 // expected max deviation in ISF, CSF, basal rates
-        let keepThreshold = 0.50 // discard points with effect contribution less than keepThreshold
-        let pointNoiseDeviation = 0.80 // single point confidence = 1 - pointNoiseDeviation
-        
-        let maxMultiplier = 1 + parameterDeviation // upper limit for the estimated multipliers
-        let minMultiplier = 1 - parameterDeviation // lower limit for the estimated multipliers
         
         // Parameter estimation launched only if we were able to get user parameters
         // so it should be safe to unwrap sensitivities and basal rates here
@@ -861,6 +946,10 @@ final class LoopDataManager {
         let currentBasalEffect: Double = -pastBasalRate * currentSensitivity * 0.5 // < 0
         
         var parameterEstimates = EstimatedParameters() // outputs of estimation filter
+        let estimationHours = parameterEstimates.estimationHours
+        let parameterDeviation = parameterEstimates.parameterDeviation
+        let pointNoiseDeviation = parameterEstimates.pointNoiseDeviation
+        
         let startDate = endDate.addingTimeInterval(TimeInterval(minutes: -30))
         let velocityUnit = glucoseUnit.unitDivided(by: HKUnit.minute())
         
@@ -881,32 +970,17 @@ final class LoopDataManager {
         
         let basalEffect = GlucoseEffectVelocity(startDate: startDate, endDate: endDate, quantity: basalQuantity)
         retrospectiveBasalEffects.insert(basalEffect, at: 0)
-        
-        // Estimation filter runs over number of hours set in EstimatedParameters()
-        let estimationHours = parameterEstimates.estimationHours
+
         retrospectiveDiscrepancies = retrospectiveDiscrepancies.filterDateRange(Date(timeIntervalSinceNow: .hours(-estimationHours)), nil)
         retrospectiveInsulinEffects = retrospectiveInsulinEffects.filterDateRange(Date(timeIntervalSinceNow: .hours(-estimationHours)), nil)
         retrospectiveCarbEffects = retrospectiveCarbEffects.filterDateRange(Date(timeIntervalSinceNow: .hours(-estimationHours)), nil)
         retrospectiveBasalEffects = retrospectiveBasalEffects.filterDateRange(Date(timeIntervalSinceNow: .hours(-estimationHours)), nil)
         
         // Estimation filter applies to arrays of effects data
-        var currentInsulinEffects: [Double] = []
-        var currentCarbEffects: [Double] = []
-        var currentBasalEffects: [Double] = []
-        var currentDiscrepancies: [Double] = []
-        
-        for effect in retrospectiveInsulinEffects {
-            currentInsulinEffects.append(effect.quantity.doubleValue(for: velocityUnit))
-        }
-        for effect in retrospectiveCarbEffects {
-            currentCarbEffects.append(effect.quantity.doubleValue(for: velocityUnit))
-        }
-        for effect in retrospectiveBasalEffects {
-            currentBasalEffects.append(effect.quantity.doubleValue(for: velocityUnit))
-        }
-        for effect in retrospectiveDiscrepancies {
-            currentDiscrepancies.append(effect.quantity.doubleValue(for: velocityUnit))
-        }
+        let currentInsulinEffects: [Double] = getEffects(retrospectiveEffects: retrospectiveInsulinEffects)
+        let currentCarbEffects: [Double] = getEffects(retrospectiveEffects: retrospectiveCarbEffects)
+        let currentBasalEffects: [Double] = getEffects(retrospectiveEffects: retrospectiveBasalEffects)
+        let currentDiscrepancies: [Double] = getEffects(retrospectiveEffects: retrospectiveDiscrepancies)
         
         let estimatorEntries: Int = min(currentInsulinEffects.count, currentCarbEffects.count, currentBasalEffects.count, currentDiscrepancies.count)
         
@@ -926,80 +1000,27 @@ final class LoopDataManager {
         var basalPoints: Int = 0
         
         for index in 0...(estimatorEntries - 1) {
-            let discrepancy = currentDiscrepancies[index]
-            let insulin = currentInsulinEffects[index]
-            let carbs  = currentCarbEffects[index]
-            let basal = currentBasalEffects[index]
-            let basalMaxDiscrepancy: Double = abs(basal) * parameterDeviation // > 0
-            let maximumExpectedDiscrepancy: Double = parameterDeviation *
-                sqrt( pow(insulin, 2) + pow(carbs, 2) + pow(basal, 2) )
-            
-            var expectedDiscrepancyFraction: Double = 1.0
-            var unexpectedPositiveFraction: Double = 0.0
-            var unexpectedNegativeFraction: Double = 0.0
-            
-            // fraction of observed discrepancy that can be ascribed to variation in parameters
-            if (discrepancy != 0.0) {
-                expectedDiscrepancyFraction = min(maximumExpectedDiscrepancy / abs(discrepancy), 1.0)
-                if (discrepancy > 0.0) {
-                    unexpectedPositiveFraction = 1.0 - expectedDiscrepancyFraction
-                } else {
-                    unexpectedNegativeFraction = 1.0 - expectedDiscrepancyFraction
-                }
-            }
-            
-            // confidence weights are proportional to current effect magnitudes
-            let weightBase = carbs + basalMaxDiscrepancy + abs(insulin)
-            var insulinSensitivityWeight: Double = 0.0
-            var carbSensitivityWeight: Double = 0.0
-            var basalWeight: Double = 0.0
-            if(weightBase > 0.0) {
-                insulinSensitivityWeight = abs(insulin) / weightBase
-                if(insulinSensitivityWeight < keepThreshold){
-                    insulinSensitivityWeight = 0.0
-                } else {
-                    insulinSensitivityPoints = insulinSensitivityWeights.incrementNonZeroCounter()
-                }
-                carbSensitivityWeight = carbs / weightBase
-                if(carbSensitivityWeight < keepThreshold){
-                    carbSensitivityWeight = 0.0
-                } else {
-                    carbSensitivityPoints = carbSensitivityWeights.incrementNonZeroCounter()
-                }
-                basalWeight = basalMaxDiscrepancy / weightBase
-                if(basalWeight < keepThreshold){
-                    basalWeight = 0.0
-                } else {
-                    basalPoints = basalWeights.incrementNonZeroCounter()
-                }
-            }
-            
-            // Allocate current observed discepancy to three parameters according to relative weights
-            let insulinDiscrepancy = insulinSensitivityWeight * expectedDiscrepancyFraction * discrepancy
-            let carbDiscrepancy = carbSensitivityWeight * expectedDiscrepancyFraction * discrepancy
-            let basalDiscrepancy = basalWeight * expectedDiscrepancyFraction * discrepancy
-            
-            // Calculate parameter multipliers, observing limits
-            var insulinSensitivityMultiplier: Double = 1.0
-            if(insulin != 0){
-                insulinSensitivityMultiplier = 1.0 + insulinDiscrepancy / insulin
-                insulinSensitivityMultiplier =
-                    max( min(insulinSensitivityMultiplier, maxMultiplier), minMultiplier)
-            }
-            var carbSensitivityMultiplier: Double = 1.0
-            if(carbs != 0){
-                carbSensitivityMultiplier = 1.0 + carbDiscrepancy / carbs
-                carbSensitivityMultiplier =
-                    max( min(carbSensitivityMultiplier, maxMultiplier), minMultiplier)
-            }
-            var basalMultiplier: Double = 1.0
-            if(basal != 0) {
-                basalMultiplier = 1.0 - basalDiscrepancy / basal
-                basalMultiplier =
-                    max( min(basalMultiplier, maxMultiplier), minMultiplier)
-            }
+            let (insulinSensitivityMultiplier, insulinSensitivityWeight,
+             carbSensitivityMultiplier, carbSensitivityWeight,
+             basalMultiplier, basalWeight,
+             unexpectedPositiveFraction, unexpectedNegativeFraction) = determineMultipliersWeights(
+                discrepancy: currentDiscrepancies[index],
+                insulin: currentInsulinEffects[index],
+                carbs: currentCarbEffects[index],
+                basal: currentBasalEffects[index],
+                parameterDeviation: parameterDeviation)
             
             NSLog("myLoop %d, ISF: %4.2f(%4.2f), CSF: %4.2f(%4.2f), B: %4.2f(%4.2f)", index, insulinSensitivityMultiplier, insulinSensitivityWeight, carbSensitivityMultiplier, carbSensitivityWeight, basalMultiplier, basalWeight)
+            
+            if (insulinSensitivityWeight > 0) {
+                insulinSensitivityPoints += 1
+            }
+            if (carbSensitivityWeight > 0) {
+                carbSensitivityPoints += 1
+            }
+            if (basalWeight > 0) {
+                basalPoints += 1
+            }
             
             insulinSensitivityMultipliers.entries.insert(insulinSensitivityMultiplier, at: 0)
             insulinSensitivityWeights.entries.insert(insulinSensitivityWeight, at: 0)
