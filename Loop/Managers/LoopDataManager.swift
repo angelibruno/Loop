@@ -979,6 +979,8 @@ final class LoopDataManager {
         let dateExample = retrospectiveBasalEffects[0].endDate
         let hourExample = Calendar.current.component(.hour, from: dateExample)
         NSLog("my Loop: ^^^^ current hour = %d ^^^^",hourExample)
+        let myEffects = retrospectiveBasalEffects.filter{ Calendar.current.component(.hour, from: $0.endDate) == 20 }
+        NSLog("my Loop: ^^^^ found %d effects at hour = 20", myEffects.count)
         
         // Estimation filter applies to arrays of effects data
         let currentInsulinEffects: [Double] = getEffects(retrospectiveEffects: retrospectiveInsulinEffects)
