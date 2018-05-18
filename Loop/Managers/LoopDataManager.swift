@@ -976,6 +976,10 @@ final class LoopDataManager {
         retrospectiveCarbEffects = retrospectiveCarbEffects.filterDateRange(Date(timeIntervalSinceNow: .hours(-estimationHours)), nil)
         retrospectiveBasalEffects = retrospectiveBasalEffects.filterDateRange(Date(timeIntervalSinceNow: .hours(-estimationHours)), nil)
         
+        let dateExample = retrospectiveBasalEffects[0].endDate
+        let hourExample = Calendar.current.component(.hour, from: dateExample)
+        NSLog("my Loop: ^^^^ current hour = %d ^^^^",hourExample)
+        
         // Estimation filter applies to arrays of effects data
         let currentInsulinEffects: [Double] = getEffects(retrospectiveEffects: retrospectiveInsulinEffects)
         let currentCarbEffects: [Double] = getEffects(retrospectiveEffects: retrospectiveCarbEffects)
