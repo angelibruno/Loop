@@ -353,7 +353,7 @@ final class SettingsTableViewController: UITableViewController, DailyValueSchedu
                 let isfConfidence = valueNumberFormatter.string(from: NSNumber(value: dataManager.loopManager.estimatedParameters.insulinSensitivityConfidence))!
                 configCell.detailTextLabel?.text = String(format: NSLocalizedString("%1$@ (%2$@%%)", comment: "Format string for ISF estimation multipler. (1: value)(2: confidence)"), isfMultiplier, isfConfidence)
             case .insulinSensitivityEstimated:
-                configCell.textLabel?.text = NSLocalizedString("Insulin Sensitivities", comment: "The title text for the estimated insulin sensitivity schedule")
+                configCell.textLabel?.text = NSLocalizedString("Estimated ISF", comment: "The title text for the estimated insulin sensitivity schedule")
                 
                 if let insulinSensitivitySchedule = dataManager.loopManager.insulinSensitivitySchedule {
                     let unit = insulinSensitivitySchedule.unit
