@@ -105,6 +105,7 @@ final class SettingsTableViewController: UITableViewController, DailyValueSchedu
         case carbRatio
         case insulinSensitivity
         case parameterEstimation
+        case insulinSensitivityEstimated
         case maxBasal
         case maxBolus
     }
@@ -351,6 +352,15 @@ final class SettingsTableViewController: UITableViewController, DailyValueSchedu
                 let isfMultiplier = valueNumberFormatter.string(from: NSNumber(value: dataManager.loopManager.estimatedParameters.insulinSensitivityMultipler))!
                 let isfConfidence = valueNumberFormatter.string(from: NSNumber(value: dataManager.loopManager.estimatedParameters.insulinSensitivityConfidence))!
                 configCell.detailTextLabel?.text = String(format: NSLocalizedString("%1$@ (%2$@%%)", comment: "Format string for ISF estimation multipler. (1: value)(2: confidence)"), isfMultiplier, isfConfidence)
+            case .insulinSensitivityEstimated:
+                configCell.textLabel?.text = NSLocalizedString("Insulin Sensitivities", comment: "The title text for the estimated insulin sensitivity schedule")
+                
+                if let insulinSensitivitySchedule = dataManager.loopManager.insulinSensitivitySchedule {
+                    let unit = insulinSensitivitySchedule.unit
+                    let value = valueNumberFormatter.string(from: NSNumber(value: insulinSensitivitySchedule.averageQuantity().doubleValue(for: unit))) ?? "—"
+                    
+                    configCell.detailTextLabel?.text = String(format: NSLocalizedString("%1$@ %2$@/U", comment: "Format string for estimated insulin sensitivity average (1: value)(2: glucose unit)"), value, unit.glucoseUnitDisplayString)
+                }
             }
 
             return configCell
@@ -622,6 +632,19 @@ final class SettingsTableViewController: UITableViewController, DailyValueSchedu
                 vc.indexPath = indexPath
                 vc.delegate = self
                 show(vc, sender: indexPath)
+            case .insulinSensitivityEstimated:
+                let scheduleVC = DailyQuantityScheduleTableViewController()
+                
+                scheduleVC.delegate = self
+                scheduleVC.title = NSLocalizedString("Estimated Insulin Sensitivities", comment: "The title of the estimated insulin sensitivities schedule screen")
+                
+                if let schedule = dataManager.loopManager.insulinSensitivitySchedule {
+                    scheduleVC.timeZone = schedule.timeZone
+                    scheduleVC.scheduleItems = schedule.items
+                    scheduleVC.unit = schedule.unit
+                    
+                    show(scheduleVC, sender: sender)
+                }
             }
         case .devices:
             let device = devices[indexPath.row]
