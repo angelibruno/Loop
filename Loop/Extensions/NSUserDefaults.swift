@@ -55,6 +55,7 @@ extension UserDefaults {
         case retrospectiveCarbEffects = "com.loopkit.Loop.retrospectiveCarbEffects"
         case retrospectiveBasalEffects = "com.loopkit.Loop.retrospectiveBasalEffects"
         case retrospectiveDiscrepancies = "com.loopkit.Loop.retrospectiveDiscrepancies"
+        case glucoseChanges = "com.loopkit.Loop.glucoseChanges"
     }
 
     var basalRateSchedule: BasalRateSchedule? {
@@ -275,6 +276,19 @@ extension UserDefaults {
         }
     }
     
+    var glucoseChanges: [GlucoseEffectVelocity]? {
+        get {
+            guard let rawValue = array(forKey: Key.glucoseChanges.rawValue) as? [GlucoseEffectVelocity.RawValue] else {
+                return nil
+            }
+            return rawValue.compactMap {
+                GlucoseEffectVelocity(rawValue: $0)
+            }
+        }
+        set {
+            set(newValue?.map({ $0.rawValue }), forKey: Key.glucoseChanges.rawValue)
+        }
+    }
     
     var insulinSensitivitySchedule: InsulinSensitivitySchedule? {
         get {
