@@ -103,6 +103,7 @@ class PredictionTableViewController: ChartsTableViewController, IdentifiableClas
             }
 
             if self.refreshContext.remove(.glucose) != nil {
+                /*
                 reloadGroup.enter()
                 self.deviceManager.loopManager.glucoseStore.getGlucoseValues(start: self.chartStartDate) { (result) -> Void in
                     switch result {
@@ -114,6 +115,14 @@ class PredictionTableViewController: ChartsTableViewController, IdentifiableClas
                         self.charts.setGlucoseValues(values)
                     }
 
+                    reloadGroup.leave()
+                }
+                */
+                reloadGroup.enter()
+                let glucoseStartDate = Date().addingTimeInterval(TimeInterval(minutes: -54))
+                self.deviceManager.loopManager.glucoseStore.getCachedGlucoseValues(start: glucoseStartDate) {
+                    (values) in
+                    self.charts.setGlucoseValues(values)
                     reloadGroup.leave()
                 }
             }

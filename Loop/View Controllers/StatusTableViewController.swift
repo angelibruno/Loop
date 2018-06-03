@@ -293,6 +293,7 @@ final class StatusTableViewController: ChartsTableViewController {
         }
 
         if currentContext.contains(.glucose) {
+            /*
             reloadGroup.enter()
             self.deviceManager.loopManager.glucoseStore.getGlucoseValues(start: chartStartDate) { (result) -> Void in
                 switch result {
@@ -304,6 +305,14 @@ final class StatusTableViewController: ChartsTableViewController {
                     self.charts.setGlucoseValues(values)
                 }
 
+                reloadGroup.leave()
+            }
+             */
+            reloadGroup.enter()
+            let glucoseStartDate = Date().addingTimeInterval(TimeInterval(minutes: -54))
+            self.deviceManager.loopManager.glucoseStore.getCachedGlucoseValues(start: glucoseStartDate) {
+                (values) in
+                self.charts.setGlucoseValues(values)
                 reloadGroup.leave()
             }
         }
