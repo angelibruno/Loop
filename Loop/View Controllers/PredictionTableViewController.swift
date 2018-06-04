@@ -119,7 +119,7 @@ class PredictionTableViewController: ChartsTableViewController, IdentifiableClas
                 }
                 */
                 reloadGroup.enter()
-                let glucoseStartDate = Date().addingTimeInterval(TimeInterval(minutes: -54))
+                let glucoseStartDate = Date().addingTimeInterval(TimeInterval(minutes: -59))
                 self.deviceManager.loopManager.glucoseStore.getCachedGlucoseValues(start: glucoseStartDate) {
                     (values) in
                     self.charts.setGlucoseValues(values)

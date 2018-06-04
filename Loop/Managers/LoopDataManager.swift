@@ -1552,13 +1552,14 @@ final class LoopDataManager {
         // run parameter estimation only if glucose has been updated
         if (glucoseUpdated) {
             
-            // store current 30-min change into array, keep changes over estimation time ***
-            if (self.pastGlucoseChanges == nil) {
+            // if pastGlucoseChanges has been initialized,
+            // append current 30-min change into pastGlucoseChanges array, trim array over estimation time ***
+            if (self.pastGlucoseChanges != nil) {
                 self.pastGlucoseChanges = []
+                _ = self.pastGlucoseChanges!.append(change)
+                let estimationStart = endDate.addingTimeInterval(TimeInterval(hours: -estimationHours))
+                _ = self.pastGlucoseChanges!.filter { $0.end.endDate >= estimationStart }
             }
-            _ = self.pastGlucoseChanges!.append(change)
-            let estimationStart = endDate.addingTimeInterval(TimeInterval(hours: -estimationHours))
-            _ = self.pastGlucoseChanges!.filter { $0.end.endDate >= estimationStart }
         
             // monitoring of retrospective correction in debugger or Console ("message: myLoop")
             
