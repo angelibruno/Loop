@@ -41,7 +41,6 @@ final class LoopDataManager {
     
     fileprivate var glucoseUpdated: Bool // flag used to decide if integral RC should be updated or not
     fileprivate var updatePastEffects: Bool // flag used to decide if past insulin and carb effects should be updated
-    fileprivate var lastRetrospectiveCorrectionGlucose: GlucoseValue?
     
     var overallRetrospectiveCorrection: HKQuantity // value used to display overall RC effect to the user
     var integralRectrospectiveCorrectionIndicator: String // display integral RC status
@@ -117,7 +116,6 @@ final class LoopDataManager {
         self.overallRetrospectiveCorrection = HKQuantity(unit: HKUnit.milligramsPerDeciliter(), doubleValue: 0)
         self.integralRectrospectiveCorrectionIndicator = " "
 
-        self.lastRetrospectiveCorrectionGlucose = nil
         self.sampleRetrospectiveGlucoseChange = nil
         self.pastGlucoseChanges = nil
         self.pastInsulinEffects = nil
@@ -366,6 +364,7 @@ final class LoopDataManager {
                     self.lastGlucoseChange = nil
                     self.retrospectiveGlucoseChange = nil
                     self.updatePastEffects = true
+                    self.glucoseUpdated = true
                     self.notify(forChange: .glucose)
                 }
             }
@@ -764,7 +763,7 @@ final class LoopDataManager {
                     if countChanges == 0 {
                         self.pastGlucoseChanges = nil
                     } else {
-                        NSLog("myLoop: +++ found %d past glucose changes +++", countChanges)
+                        NSLog("myLoop: +++ inilialized %d past glucose changes +++", countChanges)
                     }
                 } else {
                     NSLog("myLoop: XXX array of past BG changes not initialized XXX")
@@ -773,7 +772,7 @@ final class LoopDataManager {
                 if let countChanges = self.pastGlucoseChanges?.count {
                     NSLog("myLoop: *** array of past BG changes has %d elements ***", countChanges)
                 } else {
-                    NSLog("myLoop: XXX array of past BG changes not initialized XXX")
+                    NSLog("myLoop: XXX array of past BG changes not initialized yet XXX")
                 }
             }
         }
@@ -1492,14 +1491,10 @@ final class LoopDataManager {
         }
         let currentCarbEffect = -change.start.quantity.doubleValue(for: glucoseUnit) + lastCarbOnlyGlucose.quantity.doubleValue(for: glucoseUnit)
         
-        // check if retrospective glucose change has been updated
-        if(lastRetrospectiveCorrectionGlucose?.endDate == change.end.endDate) {
-            glucoseUpdated = false
-            NSLog("myLoop: xxx RC for this glucose already done! xxx")
-        } else {
-            lastRetrospectiveCorrectionGlucose = change.end
-            glucoseUpdated = true
+        if glucoseUpdated {
             NSLog("myLoop: ooo updated RC glucose! ooo")
+        } else {
+            NSLog("myLoop: xxx RC for this glucose already done! xxx")
         }
 
         // update overall retrospective correction
@@ -1552,13 +1547,21 @@ final class LoopDataManager {
         // run parameter estimation only if glucose has been updated
         if (glucoseUpdated) {
             
+            let dateFormatter = DateFormatter()
+            dateFormatter.dateStyle = .medium
+            dateFormatter.timeStyle = .medium
+            dateFormatter.locale = Locale(identifier: "en_US")
             // if pastGlucoseChanges has been initialized,
-            // append current 30-min change into pastGlucoseChanges array, trim array over estimation time ***
+            // append current 30-min change into pastGlucoseChanges array, trim array to estimation hours ***
             if (self.pastGlucoseChanges != nil) {
-                self.pastGlucoseChanges = []
                 _ = self.pastGlucoseChanges!.append(change)
                 let estimationStart = endDate.addingTimeInterval(TimeInterval(hours: -estimationHours))
-                _ = self.pastGlucoseChanges!.filter { $0.end.endDate >= estimationStart }
+                self.pastGlucoseChanges = self.pastGlucoseChanges!.filter { $0.end.endDate >= estimationStart }
+                let earliestDate = self.pastGlucoseChanges![0].end.endDate
+                NSLog("myLoop: estimation start: %@", dateFormatter.string(from: estimationStart))
+                NSLog("myLoop: earliest bg change: %@", dateFormatter.string(from: earliestDate))
+            } else {
+                NSLog("myLoop: ??? in RC, nil array of glucose changes ???")
             }
         
             // monitoring of retrospective correction in debugger or Console ("message: myLoop")
@@ -1586,6 +1589,7 @@ final class LoopDataManager {
             
         }
         
+        glucoseUpdated = false // ensure that we only update integral RC once per bg update cycle
         NSLog("myLoop: rc END")
     }
 
