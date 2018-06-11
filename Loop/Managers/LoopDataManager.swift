@@ -40,6 +40,7 @@ final class LoopDataManager {
     private let logger: CategoryLogger
     
     fileprivate var glucoseUpdated: Bool // flag used to decide if integral RC should be updated or not
+    fileprivate var initializeIntegralRetrospectiveCorrection: Bool // flag used to decide if integral RC should be initialized upon Loop restart or other reasons
     fileprivate var updatePastEffects: Bool // flag used to decide if past insulin and carb effects should be updated
     
     var overallRetrospectiveCorrection: HKQuantity // value used to display overall RC effect to the user
@@ -76,6 +77,7 @@ final class LoopDataManager {
     }
 
     // parameter estimation setup
+    fileprivate var restartRetrospectiveGlucoseChanges: [GlucoseChange]?
     fileprivate let estimationHours: Double = 24.0
     fileprivate var pastGlucoseChanges: [GlucoseChange]?
     fileprivate var pastInsulinEffects: [GlucoseEffect]?
@@ -112,9 +114,11 @@ final class LoopDataManager {
         self.settings = settings
         
         self.glucoseUpdated = false
+        self.initializeIntegralRetrospectiveCorrection = true
         self.updatePastEffects = false
         self.overallRetrospectiveCorrection = HKQuantity(unit: HKUnit.milligramsPerDeciliter(), doubleValue: 0)
         self.integralRectrospectiveCorrectionIndicator = " "
+        self.restartRetrospectiveGlucoseChanges = nil
 
         self.sampleRetrospectiveGlucoseChange = nil
         self.pastGlucoseChanges = nil
@@ -129,7 +133,7 @@ final class LoopDataManager {
             defaultAbsorptionTimes: (
                 fast: TimeInterval(hours: 1.5),
                 medium: TimeInterval(hours: 2.5),
-                slow: TimeInterval(hours: 4)
+                slow: TimeInterval(hours: 13) // TO DO: extend cache in LoopKit instead
             ),
             carbRatioSchedule: carbRatioSchedule,
             insulinSensitivitySchedule: insulinSensitivitySchedule
@@ -605,6 +609,88 @@ final class LoopDataManager {
             throw LoopError.missingDataError(details: "Glucose data not available", recovery: "Check your CGM data source")
         }
 
+        // reinitialize integral retrospective correction states based on past 60 minutes of data
+        // do this only upon Loop restart
+        if self.initializeIntegralRetrospectiveCorrection {
+            self.initializeIntegralRetrospectiveCorrection = false // do this only upon restart
+            let retrospectiveRestartDate = lastGlucoseDate.addingTimeInterval(TimeInterval(minutes: -60))
+            
+            // get insulin effects over the retrospective restart interval
+            updateGroup.enter()
+            doseStore.getGlucoseEffects(start: retrospectiveRestartDate.addingTimeInterval(TimeInterval(minutes: -60))) { (result) -> Void in
+                switch result {
+                case .failure(let error):
+                    self.logger.error(error)
+                    self.insulinEffect = nil
+                case .success(let effects):
+                    self.insulinEffect = effects
+                }
+                updateGroup.leave()
+            }
+            
+            // get carb effects over the retrospective restart interval
+            updateGroup.enter()
+            carbStore.getGlucoseEffects(
+                start: retrospectiveRestartDate.addingTimeInterval(TimeInterval(minutes: -60)),
+                effectVelocities: settings.dynamicCarbAbsorptionEnabled ? insulinCounteractionEffects : nil
+            ) { (result) -> Void in
+                switch result {
+                case .failure(let error):
+                    self.logger.error(error)
+                    self.carbEffect = nil
+                case .success(let effects):
+                    self.carbEffect = effects
+                }
+                updateGroup.leave()
+            }
+            
+            _ = updateGroup.wait(timeout: .distantFuture)
+            
+            
+             let dateFormatter = DateFormatter()
+             dateFormatter.dateStyle = .medium
+             dateFormatter.timeStyle = .medium
+             dateFormatter.locale = Locale(identifier: "en_US")
+            
+            var sampleGlucoseChangeEnd: Date = retrospectiveRestartDate
+            while sampleGlucoseChangeEnd <= lastGlucoseDate {
+                self.retrospectiveGlucoseChange = nil
+                let sampleGlucoseChangeStart = sampleGlucoseChangeEnd.addingTimeInterval(TimeInterval(minutes: -30))
+                updateGroup.enter()
+                self.glucoseStore.getGlucoseChange(start: sampleGlucoseChangeStart, end: sampleGlucoseChangeEnd) { (change) in
+                    self.retrospectiveGlucoseChange = change
+                    updateGroup.leave()
+                }
+                
+                _ = updateGroup.wait(timeout: .distantFuture)
+                
+                if let change = self.retrospectiveGlucoseChange {
+                    let changeTimeInterval = change.end.endDate.timeIntervalSince(change.start.endDate).minutes
+                    NSLog("myLoop: retrospection start: %@", dateFormatter.string(from: sampleGlucoseChangeStart))
+                    NSLog("myLoop: retrospection end: %@", dateFormatter.string(from: sampleGlucoseChangeEnd))
+                    NSLog("myLoop: retrospective minutes: %4.2f",changeTimeInterval)
+                } else {
+                    NSLog("myLoop: not able to determine glucose change")
+                }
+                
+                self.glucoseUpdated = true
+                do {
+                    try updateRetrospectiveGlucoseEffect()
+                } catch let error {
+                    logger.error(error)
+                }
+                self.glucoseUpdated = false
+                
+                sampleGlucoseChangeEnd = sampleGlucoseChangeEnd.addingTimeInterval(TimeInterval(minutes: 5))
+            }
+            
+            self.insulinEffect = nil
+            self.carbEffect = nil
+            self.retrospectiveGlucoseChange = nil
+        }
+        
+        // original update() continues below
+            
         let retrospectiveStart = lastGlucoseDate.addingTimeInterval(-glucoseStore.reflectionDataInterval)
 
         if retrospectiveGlucoseChange == nil {
@@ -696,7 +782,9 @@ final class LoopDataManager {
                 updateGroup.leave()
             }
         }
-
+        
+        //let glucoseUnit = HKUnit.milligramsPerDeciliter() // do all calcs in mg/dL
+        /*
         let estimationStart = lastGlucoseDate.addingTimeInterval(TimeInterval(hours: -estimationHours))
         // update past insulin and carb effects only if necessary and only if bg has just been updated
         if updatePastEffects {
@@ -776,6 +864,7 @@ final class LoopDataManager {
                 }
             }
         }
+        */
         
         _ = updateGroup.wait(timeout: .distantFuture)
 
@@ -1291,11 +1380,17 @@ final class LoopDataManager {
         // so it should be safe to unwrap sensitivities and basal rates here
         let insulinSensitivity = insulinSensitivitySchedule!
         let basalRates = basalRateSchedule!
+        let dateFormatter = DateFormatter()
+        dateFormatter.dateStyle = .medium
+        dateFormatter.timeStyle = .medium
+        dateFormatter.locale = Locale(identifier: "en_US")
         
         if self.pastGlucoseChanges == nil || self.pastInsulinEffects == nil {
             self.pastEffects = nil // missing data, unable to update past Effects
+            NSLog("myLoopS: XXX missing data, unable to update past effects XXX")
             return
         } else {
+            //NSLog("myLoopS: **************** past effects **************************")
             self.pastEffects = []
             for glucoseChange in pastGlucoseChanges! {
                 let startDate = glucoseChange.start.startDate
@@ -1316,7 +1411,8 @@ final class LoopDataManager {
                     pastInsulinEffects!.filterDateRange(startDate, endDate))
                 guard let lastInsulinGlucose = insulinGlucose.last else { continue }
                 let insulinDeltaBG: Double = -glucoseChange.start.quantity.doubleValue(for: glucoseUnit) + lastInsulinGlucose.quantity.doubleValue(for: glucoseUnit)
-                let discrepancy = deltaBG - ( carbDeltaBG - insulinDeltaBG )
+                
+                let discrepancy = deltaBG - ( carbDeltaBG + insulinDeltaBG )
                 
                 // approximate maximum basal effect based on the rate 2 hours ago
                 let pastDate = startDate.addingTimeInterval(TimeInterval(minutes: -120))
@@ -1324,10 +1420,13 @@ final class LoopDataManager {
                 //let glucoseUnit = HKUnit.milligramsPerDeciliter()
                 let currentSensitivity = insulinSensitivity.quantity(at: startDate).doubleValue(for: glucoseUnit)
                 // approximate 30-min BG impact of past basal rate
-                let basalDeltaBG: Double = -pastBasalRate * currentSensitivity * 30 / 60 // < 0
+                let changeTimeInterval = glucoseChange.end.startDate.timeIntervalSince(glucoseChange.start.startDate).minutes
+                let basalDeltaBG: Double = -pastBasalRate * currentSensitivity * changeTimeInterval / 60 // < 0
                 
                 let currentEffect: Effect = (startDate, endDate, deltaBG, discrepancy, insulinDeltaBG, carbDeltaBG, basalDeltaBG)
                 _ = self.pastEffects!.append(currentEffect)
+                
+                //NSLog("myLoopS: %@: DeltaBG: %4.2f, I: %4.2f, B: %4.2f, C: %4.2f, D: %4.2f", dateFormatter.string(from: endDate), deltaBG, insulinDeltaBG, basalDeltaBG, carbDeltaBG, discrepancy)
             }
             if self.pastEffects!.count == 0 { self.pastEffects = nil }
         }
@@ -1450,6 +1549,7 @@ final class LoopDataManager {
         let glucoseUnit = HKUnit.milligramsPerDeciliter()
         let velocityUnit = glucoseUnit.unitDivided(by: HKUnit.second())
 
+        let changeTimeInterval = change.end.endDate.timeIntervalSince(change.start.endDate).minutes
 
         // user settings
         guard
@@ -1463,7 +1563,7 @@ final class LoopDataManager {
                 NSLog("myLoop --- could not get settings, reset retrospective correction")
                 return
         }
-        let date = Date()
+        let date = endDate
         let currentSensitivity = insulinSensitivity.quantity(at: date).doubleValue(for: glucoseUnit)
         let currentBasalRate = basalRates.value(at: date)
         let currentMinTarget = glucoseTargetRange.minQuantity(at: date).doubleValue(for: glucoseUnit)
@@ -1544,38 +1644,44 @@ final class LoopDataManager {
         let currentDeltaBG = change.end.quantity.doubleValue(for: glucoseUnit) -
             change.start.quantity.doubleValue(for: glucoseUnit)// mg/dL
         
+
+        // monitoring of retrospective correction in debugger or Console ("message: myLoop")
+        
+        NSLog("myLoop ******************************************")
+        NSLog("myLoop ---retrospective correction ([mg/dL] bg unit)---")
+        NSLog("myLoop Current BG: %f", currentBG)
+        NSLog("myLoop 30-min retrospective delta BG: %f", currentDeltaBG)
+        NSLog("myLoop Retrospective insulin effect: %f", currentInsulinEffect)
+        NSLog("myLoop Retrospectve carb effect: %f", currentCarbEffect)
+        NSLog("myLoop Current discrepancy: %f", currentDiscrepancy)
+        NSLog("myLoop Overall retrospective correction: %f", overallRC)
+        NSLog("myLoop Correction effect duration [min]: %f", effectMinutes)
+        NSLog("myLoop Change time interval: %4.2f", changeTimeInterval)
+
         // run parameter estimation only if glucose has been updated
         if (glucoseUpdated) {
             
+            /*
             let dateFormatter = DateFormatter()
             dateFormatter.dateStyle = .medium
             dateFormatter.timeStyle = .medium
             dateFormatter.locale = Locale(identifier: "en_US")
             // if pastGlucoseChanges has been initialized,
             // append current 30-min change into pastGlucoseChanges array, trim array to estimation hours ***
-            if (self.pastGlucoseChanges != nil) {
+            if (self.pastGlucoseChanges != nil && changeTimeInterval > 10) {
                 _ = self.pastGlucoseChanges!.append(change)
                 let estimationStart = endDate.addingTimeInterval(TimeInterval(hours: -estimationHours))
                 self.pastGlucoseChanges = self.pastGlucoseChanges!.filter { $0.end.endDate >= estimationStart }
                 let earliestDate = self.pastGlucoseChanges![0].end.endDate
                 NSLog("myLoop: estimation start: %@", dateFormatter.string(from: estimationStart))
                 NSLog("myLoop: earliest bg change: %@", dateFormatter.string(from: earliestDate))
+                _ = updateEffectsForEstimation()
             } else {
-                NSLog("myLoop: ??? in RC, nil array of glucose changes ???")
+                NSLog("myLoop: ??? nil array of glucose changes or too short change interval ???")
             }
-        
-            // monitoring of retrospective correction in debugger or Console ("message: myLoop")
+             */
             
-            NSLog("myLoop ******************************************")
-            NSLog("myLoop ---retrospective correction ([mg/dL] bg unit)---")
-            NSLog("myLoop Current BG: %f", currentBG)
-            NSLog("myLoop 30-min retrospective delta BG: %f", currentDeltaBG)
-            NSLog("myLoop Retrospective insulin effect: %f", currentInsulinEffect)
-            NSLog("myLoop Retrospectve carb effect: %f", currentCarbEffect)
-            NSLog("myLoop Current discrepancy: %f", currentDiscrepancy)
-            NSLog("myLoop Overall retrospective correction: %f", overallRC)
-            NSLog("myLoop Correction effect duration [min]: %f", effectMinutes)
-            
+            /*
             // parameter estimation monitoring in debugger or Console ("message: myLoop")
             NSLog("myLoop ---parameter estimation------")
             
@@ -1586,7 +1692,7 @@ final class LoopDataManager {
             NSLog("myLoop Estimated CR multiplier: %4.2f with %2.0f%% confidence", self.estimatedParameters.carbRatioMultiplier, self.estimatedParameters.carbRatioConfidence)
             NSLog("myLoop Estimated basal multiplier: %4.2f with %2.0f%% confidence", self.estimatedParameters.basalMultiplier, self.estimatedParameters.basalConfidence)
             NSLog("myLoop Unexpected +BG: %2.0f%%, unexpected -BG: %2.0f%%", self.estimatedParameters.unexpectedPositiveDiscrepancyPercentage, self.estimatedParameters.unexpectedNegativeDiscrepancyPercentage)
-            
+            */
         }
         
         glucoseUpdated = false // ensure that we only update integral RC once per bg update cycle
