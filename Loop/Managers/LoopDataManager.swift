@@ -1436,7 +1436,7 @@ final class LoopDataManager {
     /**
      Retrospective correction math, including proportional and integral action
      */
-    struct retrospectiveCorrection {
+    struct RetrospectiveCorrection {
         
         let discrepancyGain: Double
         let persistentDiscrepancyGain: Double
@@ -1466,37 +1466,37 @@ final class LoopDataManager {
                                            negativeLimit: Double,
                                            carbEffect: Double,
                                            glucoseUpdated: Bool) -> Double {
-            if (retrospectiveCorrection.previousDiscrepancy * discrepancy < 0 ||
+            if (RetrospectiveCorrection.previousDiscrepancy * discrepancy < 0 ||
                 (discrepancy > 0 && carbEffect > carbEffectLimit)){
                 // reset integral action when discrepancy reverses polarity or
                 // if discrepancy is positive and carb effect is greater than carbEffectLimit
-                retrospectiveCorrection.effectDuration = 60.0
-                retrospectiveCorrection.previousDiscrepancy = 0.0
-                retrospectiveCorrection.integralDiscrepancy = integralGain * discrepancy
+                RetrospectiveCorrection.effectDuration = 60.0
+                RetrospectiveCorrection.previousDiscrepancy = 0.0
+                RetrospectiveCorrection.integralDiscrepancy = integralGain * discrepancy
             } else {
                 if (glucoseUpdated) {
                     // update integral action via low-pass filter y[n] = forget * y[n-1] + gain * u[n]
-                    retrospectiveCorrection.integralDiscrepancy =
-                        integralForget * retrospectiveCorrection.integralDiscrepancy +
+                    RetrospectiveCorrection.integralDiscrepancy =
+                        integralForget * RetrospectiveCorrection.integralDiscrepancy +
                         integralGain * discrepancy
                     // impose safety limits on integral retrospective correction
-                    retrospectiveCorrection.integralDiscrepancy = min(max(retrospectiveCorrection.integralDiscrepancy, negativeLimit), positiveLimit)
-                    retrospectiveCorrection.previousDiscrepancy = discrepancy
+                    RetrospectiveCorrection.integralDiscrepancy = min(max(RetrospectiveCorrection.integralDiscrepancy, negativeLimit), positiveLimit)
+                    RetrospectiveCorrection.previousDiscrepancy = discrepancy
                     // extend duration of retrospective correction effect by 10 min, up to a maxium of 180 min
-                    retrospectiveCorrection.effectDuration =
-                    min(retrospectiveCorrection.effectDuration + 10, 180)
+                    RetrospectiveCorrection.effectDuration =
+                    min(RetrospectiveCorrection.effectDuration + 10, 180)
                 }
             }
-            let overallDiscrepancy = proportionalGain * discrepancy + retrospectiveCorrection.integralDiscrepancy
+            let overallDiscrepancy = proportionalGain * discrepancy + RetrospectiveCorrection.integralDiscrepancy
             return(overallDiscrepancy)
         }
         func updateEffectDuration() -> Double {
-            return(retrospectiveCorrection.effectDuration)
+            return(RetrospectiveCorrection.effectDuration)
         }
         func resetRetrospectiveCorrection() {
-            retrospectiveCorrection.effectDuration = 60.0
-            retrospectiveCorrection.previousDiscrepancy = 0.0
-            retrospectiveCorrection.integralDiscrepancy = 0.0
+            RetrospectiveCorrection.effectDuration = 60.0
+            RetrospectiveCorrection.previousDiscrepancy = 0.0
+            RetrospectiveCorrection.integralDiscrepancy = 0.0
             return
         }
     }
@@ -1509,10 +1509,17 @@ final class LoopDataManager {
      */
     private func updateRetrospectiveGlucoseEffect(effectDuration: TimeInterval = TimeInterval(minutes: 60)) throws {
         
+        NSLog("myLoop: +++++++++++++++++++++++++++++++++++++++++++++++")
         NSLog("myLoop: rc START")
         
         dispatchPrecondition(condition: .onQueue(dataAccessQueue))
 
+        if glucoseUpdated {
+            NSLog("myLoop: ooo updated RC glucose! ooo")
+        } else {
+            NSLog("myLoop: xxx RC for this glucose already done! xxx")
+        }
+        
         guard
             let carbEffect = self.carbEffect,
             let insulinEffect = self.insulinEffect
@@ -1523,13 +1530,16 @@ final class LoopDataManager {
         
         // integral retrospective correction variables
         var dynamicEffectDuration: TimeInterval = effectDuration
-        let RC = retrospectiveCorrection()
+        let retrospectiveCorrection = RetrospectiveCorrection()
 
         guard let change = retrospectiveGlucoseChange else {
-            // reset integral action variables in case of calibration event
-            RC.resetRetrospectiveCorrection()
-            dynamicEffectDuration = effectDuration
+            if glucoseUpdated {
+                // reset integral action variables for glucose updated after calibration event
+                NSLog("myLoop --- calibration event: reset integral retrospective correction")
+                retrospectiveCorrection.resetRetrospectiveCorrection()
+            }
             NSLog("myLoop --- suspected calibration event, no retrospective correction")
+            glucoseUpdated = false
             self.retrospectivePredictedGlucose = nil
             return  // Expected case for calibrations
         }
@@ -1543,30 +1553,42 @@ final class LoopDataManager {
         )
 
         guard let lastGlucose = retrospectivePrediction.last else {
-            RC.resetRetrospectiveCorrection()
+            retrospectiveCorrection.resetRetrospectiveCorrection()
+            glucoseUpdated = false
+            self.retrospectivePredictedGlucose = nil
             NSLog("myLoop --- glucose data missing, reset retrospective correction")
-            return }
+            return
+        }
+
+        let retrospectionTimeInterval = change.end.endDate.timeIntervalSince(change.start.endDate).minutes
+        if retrospectionTimeInterval < 9.5 {
+            retrospectiveCorrection.resetRetrospectiveCorrection()
+            glucoseUpdated = false
+            self.retrospectivePredictedGlucose = nil
+            NSLog("myLoop --- too few glucose values, reset retrospective correction")
+            return
+        }
+
         let glucoseUnit = HKUnit.milligramsPerDeciliter()
         let velocityUnit = glucoseUnit.unitDivided(by: HKUnit.second())
 
-        let changeTimeInterval = change.end.endDate.timeIntervalSince(change.start.endDate).minutes
-
-        // user settings
+        // get user settings
         guard
             let glucoseTargetRange = settings.glucoseTargetRangeSchedule,
             let insulinSensitivity = insulinSensitivitySchedule,
             let basalRates = basalRateSchedule,
-            let suspendThreshold = settings.suspendThreshold?.quantity,
-            let currentBG = glucoseStore.latestGlucose?.quantity.doubleValue(for: glucoseUnit)
+            let suspendThreshold = settings.suspendThreshold?.quantity
             else {
-                RC.resetRetrospectiveCorrection()
+                retrospectiveCorrection.resetRetrospectiveCorrection()
+                glucoseUpdated = false
+                self.retrospectivePredictedGlucose = nil
                 NSLog("myLoop --- could not get settings, reset retrospective correction")
                 return
         }
-        let date = endDate
-        let currentSensitivity = insulinSensitivity.quantity(at: date).doubleValue(for: glucoseUnit)
-        let currentBasalRate = basalRates.value(at: date)
-        let currentMinTarget = glucoseTargetRange.minQuantity(at: date).doubleValue(for: glucoseUnit)
+        let currentBG = change.end.quantity.doubleValue(for: glucoseUnit)
+        let currentSensitivity = insulinSensitivity.quantity(at: endDate).doubleValue(for: glucoseUnit)
+        let currentBasalRate = basalRates.value(at: endDate)
+        let currentMinTarget = glucoseTargetRange.minQuantity(at: endDate).doubleValue(for: glucoseUnit)
         let currentSuspendThreshold = suspendThreshold.doubleValue(for: glucoseUnit)
         
         // safety limit for + integral action: ISF * (2 hours) * (basal rate)
@@ -1585,20 +1607,15 @@ final class LoopDataManager {
         let retrospectiveCarbEffect = LoopMath.predictGlucose(change.start, effects:
             carbEffect.filterDateRange(startDate, endDate))
         guard let lastCarbOnlyGlucose = retrospectiveCarbEffect.last else {
-            RC.resetRetrospectiveCorrection()
+            retrospectiveCorrection.resetRetrospectiveCorrection()
+            glucoseUpdated = false
             NSLog("myLoop --- could not get carb effect, reset retrospective correction")
             return
         }
         let currentCarbEffect = -change.start.quantity.doubleValue(for: glucoseUnit) + lastCarbOnlyGlucose.quantity.doubleValue(for: glucoseUnit)
-        
-        if glucoseUpdated {
-            NSLog("myLoop: ooo updated RC glucose! ooo")
-        } else {
-            NSLog("myLoop: xxx RC for this glucose already done! xxx")
-        }
 
         // update overall retrospective correction
-        let overallRC = RC.updateRetrospectiveCorrection(
+        let overallRC = retrospectiveCorrection.updateRetrospectiveCorrection(
             discrepancy: currentDiscrepancy,
             positiveLimit: integralActionPositiveLimit,
             negativeLimit: integralActionNegativeLimit,
@@ -1606,7 +1623,7 @@ final class LoopDataManager {
             glucoseUpdated: glucoseUpdated
         )
         
-        let effectMinutes = RC.updateEffectDuration()
+        let effectMinutes = retrospectiveCorrection.updateEffectDuration()
         dynamicEffectDuration = TimeInterval(minutes: effectMinutes)
        
         // update effect value for display
@@ -1626,7 +1643,7 @@ final class LoopDataManager {
         // retrospective correction including integral action
         let scaledDiscrepancy = overallRC * 60.0 / effectMinutes // scaled to account for extended effect duration
         
-        // Velocity calculation had change.end.endDate.timeIntervalSince(change.0.endDate) in the denominator,
+        // In Loop 1.5, velocity calculation had change.end.endDate.timeIntervalSince(change.0.endDate) in the denominator,
         // which could lead to too high RC gain when retrospection interval is shorter than 30min
         // Changed to safe fixed default retrospection interval of 30*60 = 1800 seconds
         let velocity = HKQuantity(unit: velocityUnit, doubleValue: scaledDiscrepancy / 1800.0)
@@ -1637,7 +1654,10 @@ final class LoopDataManager {
         // retrospective insulin effect (just for monitoring RC operation)
         let retrospectiveInsulinEffect = LoopMath.predictGlucose(change.start, effects:
             insulinEffect.filterDateRange(startDate, endDate))
-        guard let lastInsulinOnlyGlucose = retrospectiveInsulinEffect.last else { return }
+        guard let lastInsulinOnlyGlucose = retrospectiveInsulinEffect.last else {
+            glucoseUpdated = false
+            return
+        }
         let currentInsulinEffect = -change.start.quantity.doubleValue(for: glucoseUnit) + lastInsulinOnlyGlucose.quantity.doubleValue(for: glucoseUnit)
 
         // retrospective delta BG (just for monitoring RC operation)
@@ -1656,7 +1676,7 @@ final class LoopDataManager {
         NSLog("myLoop Current discrepancy: %f", currentDiscrepancy)
         NSLog("myLoop Overall retrospective correction: %f", overallRC)
         NSLog("myLoop Correction effect duration [min]: %f", effectMinutes)
-        NSLog("myLoop Change time interval: %4.2f", changeTimeInterval)
+        NSLog("myLoop Change time interval: %4.2f", retrospectionTimeInterval)
 
         // run parameter estimation only if glucose has been updated
         if (glucoseUpdated) {
