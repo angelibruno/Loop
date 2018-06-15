@@ -1799,14 +1799,11 @@ final class LoopDataManager {
     ///     - LoopError.glucoseTooOld
     ///     - LoopError.missingDataError
     ///     - LoopError.pumpDataTooOld
-<<<<<<< HEAD
-    private func updatePredictedGlucoseAndRecommendedBasal() throws {
-        
-        NSLog("myLoop: prediction-recommendation START")
-        
-=======
+
     private func updatePredictedGlucoseAndRecommendedBasalAndBolus() throws {
->>>>>>> dev
+
+        NSLog("myLoop: prediction-recommendation START")
+    
         dispatchPrecondition(condition: .onQueue(dataAccessQueue))
 
         guard let glucose = glucoseStore.latestGlucose else {
@@ -1859,39 +1856,6 @@ final class LoopDataManager {
             recommendedTempBasal = nil
             return
         }
-<<<<<<< HEAD
-
-        recommendedTempBasal = (recommendation: tempBasal, date: Date())
-    
-        NSLog("myLoop: prediction-recommendation END")
-    
-    }
-
-    /// - Returns: A bolus recommendation from the current data
-    /// - Throws: 
-    ///     - LoopError.configurationError
-    ///     - LoopError.glucoseTooOld
-    ///     - LoopError.missingDataError
-    fileprivate func recommendBolus() throws -> BolusRecommendation {
-        dispatchPrecondition(condition: .onQueue(dataAccessQueue))
-
-        guard
-            let predictedGlucose = predictedGlucose,
-            let maxBolus = settings.maximumBolus,
-            let glucoseTargetRange = settings.glucoseTargetRangeSchedule,
-            let insulinSensitivity = insulinSensitivitySchedule,
-            let model = insulinModelSettings?.model
-        else {
-            throw LoopError.configurationError("Check Settings")
-        }
-
-        guard let glucoseDate = predictedGlucose.first?.startDate else {
-            throw LoopError.missingDataError(details: "No glucose data found", recovery: "Check your CGM source")
-        }
-
-        guard abs(glucoseDate.timeIntervalSinceNow) <= recencyInterval else {
-            throw LoopError.glucoseTooOld(date: glucoseDate)
-=======
         
         let tempBasal = predictedGlucose.recommendedTempBasal(
             to: glucoseTargetRange,
@@ -1907,7 +1871,6 @@ final class LoopDataManager {
             recommendedTempBasal = (recommendation: temp, date: startDate)
         } else {
             recommendedTempBasal = nil
->>>>>>> dev
         }
 
         let pendingInsulin = try self.getPendingInsulin()

@@ -7,6 +7,7 @@
 	objects = {
 
 /* Begin PBXBuildFile section */
+		3818AC4F20D41420008FEDCE /* Default-568h@2x.png in Resources */ = {isa = PBXBuildFile; fileRef = 3818AC4E20D41420008FEDCE /* Default-568h@2x.png */; };
 		38204CE2209FCB8B00EE2DAD /* EstimatedParametersTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 38204CE1209FCB8B00EE2DAD /* EstimatedParametersTableViewController.swift */; };
 		43027F0F1DFE0EC900C51989 /* HKUnit.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4F526D5E1DF2459000A04910 /* HKUnit.swift */; };
 		4302F4E11D4E9C8900F0FCAF /* TextFieldTableViewController.swift in Sources */ = {isa = PBXBuildFile; fileRef = 4302F4E01D4E9C8900F0FCAF /* TextFieldTableViewController.swift */; };
@@ -386,6 +387,7 @@
 /* End PBXCopyFilesBuildPhase section */
 
 /* Begin PBXFileReference section */
+		3818AC4E20D41420008FEDCE /* Default-568h@2x.png */ = {isa = PBXFileReference; lastKnownFileType = image.png; path = "Default-568h@2x.png"; sourceTree = "<group>"; };
 		38204CE1209FCB8B00EE2DAD /* EstimatedParametersTableViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = EstimatedParametersTableViewController.swift; sourceTree = "<group>"; };
 		4302F4E01D4E9C8900F0FCAF /* TextFieldTableViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = TextFieldTableViewController.swift; sourceTree = "<group>"; };
 		4302F4E21D4EA54200F0FCAF /* InsulinDeliveryTableViewController.swift */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.swift; path = InsulinDeliveryTableViewController.swift; sourceTree = "<group>"; };
@@ -793,6 +795,7 @@
 		43776F831B8022E90074EA36 = {
 			isa = PBXGroup;
 			children = (
+				3818AC4E20D41420008FEDCE /* Default-568h@2x.png */,
 				4FF4D0FA1E1834BD00846527 /* Common */,
 				43776F8E1B8022E90074EA36 /* Loop */,
 				4F70C1DF1DE8DCA7006380B7 /* Loop Status Extension */,
@@ -1458,6 +1461,7 @@
 				43FCBBC21E51710B00343C1B /* LaunchScreen.storyboard in Resources */,
 				7D70764F1FE06EE1004AC8EA /* InfoPlist.strings in Resources */,
 				43776F991B8022E90074EA36 /* Assets.xcassets in Resources */,
+				3818AC4F20D41420008FEDCE /* Default-568h@2x.png in Resources */,
 				434F54591D28805E002A9274 /* ButtonTableViewCell.xib in Resources */,
 				7D7076631FE06EE4004AC8EA /* Localizable.strings in Resources */,
 				43776F971B8022E90074EA36 /* Main.storyboard in Resources */,
