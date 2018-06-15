@@ -1639,22 +1639,25 @@ final class LoopDataManager {
         )
         let effectMinutes = retrospectiveCorrection.updateEffectDuration()
        
-        // update effect value for display
-        overallRetrospectiveCorrection = HKQuantity(unit: glucoseUnit, doubleValue: overallRC)
-        // update integral RC status indicator
-        if (overallRC - currentDiscrepancy > 0.5) {
-            integralRectrospectiveCorrectionIndicator = " ⬆️"
-        } else {
-            if (overallRC - currentDiscrepancy < -0.5) {
+        // standard retrospective correction
+        var scaledDiscrepancy = currentDiscrepancy
+        dynamicEffectDuration = effectDuration
+        overallRetrospectiveCorrection = HKQuantity(unit: glucoseUnit, doubleValue: currentDiscrepancy)
+        integralRectrospectiveCorrectionIndicator = " "
+        
+        if settings.integralRetrospectiveCorrectionEnabled {
+            // retrospective correction including integral action
+            scaledDiscrepancy = overallRC * 60.0 / effectMinutes // scaled to account for extended effect duration
+            dynamicEffectDuration = TimeInterval(minutes: effectMinutes)
+            // update Predicted Glucose indicators
+            overallRetrospectiveCorrection = HKQuantity(unit: glucoseUnit, doubleValue: overallRC)
+            if currentDiscrepancy > 0 && (overallRC - currentDiscrepancy > 0.5) {
+                integralRectrospectiveCorrectionIndicator = " ⬆️"
+            }
+            if currentDiscrepancy < 0 && (currentDiscrepancy - overallRC > 0.5) {
                 integralRectrospectiveCorrectionIndicator = " ⬇️"
-            } else {
-                integralRectrospectiveCorrectionIndicator = " "
             }
         }
-        
-        // retrospective correction including integral action
-        let scaledDiscrepancy = overallRC * 60.0 / effectMinutes // scaled to account for extended effect duration
-        dynamicEffectDuration = TimeInterval(minutes: effectMinutes)
         
         // In Loop 1.5, velocity calculation had change.end.endDate.timeIntervalSince(change.0.endDate) in the denominator,
         // which could lead to too high RC gain when retrospection interval is short
@@ -1682,6 +1685,7 @@ final class LoopDataManager {
         
         NSLog("myLoop ******************************************")
         NSLog("myLoop ---retrospective correction ([mg/dL] bg unit)---")
+        NSLog("myLoop Integral retrospective correction enabled: %d", settings.integralRetrospectiveCorrectionEnabled)
         NSLog("myLoop Current BG: %f", currentBG)
         NSLog("myLoop 30-min retrospective delta BG: %4.2f", currentDeltaBG)
         NSLog("myLoop Retrospective insulin effect: %4.2f", currentInsulinEffect)
