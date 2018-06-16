@@ -114,10 +114,11 @@ final class LoopDataManager {
         
         self.glucoseUpdated = false
         self.initializeIntegralRetrospectiveCorrection = true
-        self.updatePastEffects = false
         self.overallRetrospectiveCorrection = nil
         self.restartRetrospectiveGlucoseChanges = nil
 
+        self.updatePastEffects = false
+        
         self.sampleRetrospectiveGlucoseChange = nil
         self.pastGlucoseChanges = nil
         self.pastInsulinEffects = nil
@@ -607,10 +608,10 @@ final class LoopDataManager {
             throw LoopError.missingDataError(details: "Glucose data not available", recovery: "Check your CGM data source")
         }
 
-        // reinitialize integral retrospective correction states based on past 60 minutes of data
-        // do this only upon Loop restart
+        // Reinitialize integral retrospective correction states based on past 60 minutes of data
+        // For now, do this only upon Loop relaunch
         if self.initializeIntegralRetrospectiveCorrection {
-            self.initializeIntegralRetrospectiveCorrection = false // do this only upon restart
+            self.initializeIntegralRetrospectiveCorrection = false
             let retrospectiveRestartDate = lastGlucoseDate.addingTimeInterval(TimeInterval(minutes: -60))
             
             // get insulin effects over the retrospective restart interval
@@ -1535,14 +1536,9 @@ final class LoopDataManager {
         let retrospectiveCorrection = RetrospectiveCorrection()
 
         guard let change = retrospectiveGlucoseChange else {
-            if glucoseUpdated {
-                // reset integral action variables upon glucose update after calibration
-                NSLog("myLoop --- calibration event: reset integral retrospective correction")
-                retrospectiveCorrection.resetRetrospectiveCorrection()
-            }
             NSLog("myLoop --- suspected calibration event, no retrospective correction")
-            overallRetrospectiveCorrection = nil
-            glucoseUpdated = false
+            self.overallRetrospectiveCorrection = nil
+            self.glucoseUpdated = false
             self.retrospectivePredictedGlucose = nil
             return  // Expected case for calibrations
         }
@@ -1557,17 +1553,20 @@ final class LoopDataManager {
 
         guard let lastGlucose = retrospectivePrediction.last else {
             retrospectiveCorrection.resetRetrospectiveCorrection()
-            overallRetrospectiveCorrection = nil
-            glucoseUpdated = false
+            self.overallRetrospectiveCorrection = nil
+            self.glucoseUpdated = false
             self.retrospectivePredictedGlucose = nil
             NSLog("myLoop --- glucose data missing, reset retrospective correction")
             return
         }
 
+        self.retrospectivePredictedGlucose = retrospectivePrediction
+        
         let retrospectionTimeInterval = change.end.endDate.timeIntervalSince(change.start.endDate).minutes
         if retrospectionTimeInterval < 6 {
-            overallRetrospectiveCorrection = nil
-            glucoseUpdated = false
+            self.overallRetrospectiveCorrection = nil
+            self.glucoseUpdated = false
+            self.retrospectivePredictedGlucose = nil
             NSLog("myLoop OOO too few glucose values, skip retrospective correction OOO")
             return
         }
@@ -1584,8 +1583,8 @@ final class LoopDataManager {
             let carbRatio = carbRatioSchedule
             else {
                 retrospectiveCorrection.resetRetrospectiveCorrection()
-                overallRetrospectiveCorrection = nil
-                glucoseUpdated = false
+                self.overallRetrospectiveCorrection = nil
+                self.glucoseUpdated = false
                 self.retrospectivePredictedGlucose = nil
                 NSLog("myLoop --- could not get settings, reset retrospective correction")
                 return
@@ -1606,16 +1605,14 @@ final class LoopDataManager {
         let discrepancyLimit = integralActionPositiveLimit
         let currentDiscrepancyUnlimited = change.end.quantity.doubleValue(for: glucoseUnit) - lastGlucose.quantity.doubleValue(for: glucoseUnit) // mg/dL
         let currentDiscrepancy = min(max(currentDiscrepancyUnlimited, -discrepancyLimit), discrepancyLimit)
-  
-        self.retrospectivePredictedGlucose = retrospectivePrediction
         
         // retrospective carb effect
         let retrospectiveCarbEffect = LoopMath.predictGlucose(change.start, effects:
             carbEffect.filterDateRange(startDate, endDate))
         guard let lastCarbOnlyGlucose = retrospectiveCarbEffect.last else {
             retrospectiveCorrection.resetRetrospectiveCorrection()
-            overallRetrospectiveCorrection = nil
-            glucoseUpdated = false
+            self.overallRetrospectiveCorrection = nil
+            self.glucoseUpdated = false
             self.retrospectivePredictedGlucose = nil
             NSLog("myLoop --- could not get carb effect, skip retrospective correction")
             return
@@ -1640,17 +1637,18 @@ final class LoopDataManager {
         )
         let effectMinutes = retrospectiveCorrection.updateEffectDuration()
        
-        // standard retrospective correction
-        var scaledDiscrepancy = currentDiscrepancy
-        dynamicEffectDuration = effectDuration
-        overallRetrospectiveCorrection = HKQuantity(unit: glucoseUnit, doubleValue: currentDiscrepancy)
         
+        var scaledDiscrepancy = currentDiscrepancy
         if settings.integralRetrospectiveCorrectionEnabled {
             // retrospective correction including integral action
             scaledDiscrepancy = overallRC * 60.0 / effectMinutes // scaled to account for extended effect duration
             dynamicEffectDuration = TimeInterval(minutes: effectMinutes)
             // update retrospective correction display value
             overallRetrospectiveCorrection = HKQuantity(unit: glucoseUnit, doubleValue: overallRC)
+        } else {
+            // standard retrospective correction
+            dynamicEffectDuration = effectDuration
+            overallRetrospectiveCorrection = HKQuantity(unit: glucoseUnit, doubleValue: currentDiscrepancy)
         }
         
         // In Loop 1.5, velocity calculation had change.end.endDate.timeIntervalSince(change.0.endDate) in the denominator,
@@ -1673,7 +1671,6 @@ final class LoopDataManager {
         // retrospective average delta BG (just for monitoring RC operation)
         let currentDeltaBG = change.end.quantity.doubleValue(for: glucoseUnit) -
             change.start.quantity.doubleValue(for: glucoseUnit)// mg/dL
-        
 
         // monitoring of retrospective correction in debugger or Console ("message: myLoop")
         
