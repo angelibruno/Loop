@@ -43,8 +43,7 @@ final class LoopDataManager {
     fileprivate var initializeIntegralRetrospectiveCorrection: Bool // flag used to decide if integral RC should be initialized upon Loop restart or other reasons
     fileprivate var updatePastEffects: Bool // flag used to decide if past insulin and carb effects should be updated
     
-    var overallRetrospectiveCorrection: HKQuantity? // value used to display overall RC effect to the user
-    var integralRectrospectiveCorrectionIndicator: String // display integral RC status
+    var overallRetrospectiveCorrection: HKQuantity? // retrospective correction including integral effect
     
     fileprivate var sampleRetrospectiveGlucoseChange: GlucoseChange?
     fileprivate typealias Effect = (
@@ -117,7 +116,6 @@ final class LoopDataManager {
         self.initializeIntegralRetrospectiveCorrection = true
         self.updatePastEffects = false
         self.overallRetrospectiveCorrection = nil
-        self.integralRectrospectiveCorrectionIndicator = " "
         self.restartRetrospectiveGlucoseChanges = nil
 
         self.sampleRetrospectiveGlucoseChange = nil
@@ -1646,20 +1644,13 @@ final class LoopDataManager {
         var scaledDiscrepancy = currentDiscrepancy
         dynamicEffectDuration = effectDuration
         overallRetrospectiveCorrection = HKQuantity(unit: glucoseUnit, doubleValue: currentDiscrepancy)
-        integralRectrospectiveCorrectionIndicator = " "
         
         if settings.integralRetrospectiveCorrectionEnabled {
             // retrospective correction including integral action
             scaledDiscrepancy = overallRC * 60.0 / effectMinutes // scaled to account for extended effect duration
             dynamicEffectDuration = TimeInterval(minutes: effectMinutes)
-            // update Predicted Glucose indicators
+            // update retrospective correction display value
             overallRetrospectiveCorrection = HKQuantity(unit: glucoseUnit, doubleValue: overallRC)
-            if currentDiscrepancy > 0 && (overallRC - currentDiscrepancy > 0.5) {
-                integralRectrospectiveCorrectionIndicator = " ⬆️"
-            }
-            if currentDiscrepancy < 0 && (currentDiscrepancy - overallRC > 0.5) {
-                integralRectrospectiveCorrectionIndicator = " ⬇️"
-            }
         }
         
         // In Loop 1.5, velocity calculation had change.end.endDate.timeIntervalSince(change.0.endDate) in the denominator,
