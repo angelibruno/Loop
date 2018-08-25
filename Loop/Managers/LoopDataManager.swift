@@ -1020,11 +1020,7 @@ extension LoopDataManager {
         
         // check if retrospective glucose correction has already been updated for this glucose change
         if( self.lastRetrospectiveCorrectionGlucose?.endDate == change.end.endDate ) {
-<<<<<<< HEAD
-            glucoseUpdated = false
-=======
             self.glucoseUpdated = false
->>>>>>> integral-retrospective-correction
         } else {
             self.lastRetrospectiveCorrectionGlucose = change.end
         }
