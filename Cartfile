@@ -6,3 +6,4 @@ github "LoopKit/dexcom-share-client-swift" "carthage-recursive"
 github "LoopKit/G4ShareSpy" "fix-cartfile"
 github "ps2/rileylink_ios" "dev"
 github "LoopKit/Amplitude-iOS" "decreepify"
+github "dabear/spike-client-swift" == 0.9.1
